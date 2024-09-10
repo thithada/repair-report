@@ -26,23 +26,27 @@ const ProgressReportLayout = () => {
     <div className="min-h-screen w-full bg-gradient-to-b from-white to-purple-400 flex items-center justify-center p-4 pt-[100px] overflow-x-hidden">
       <div className="max-w-6xl w-full relative">
         {/* Decorative elements */}
-        <div className="absolute -top-32 -left-16 w-48 h-48 md:block hidden">
-          <img src="/icons/gear.png" alt="Decorative sphere" className="w-full h-full object-contain transform scale-150 -translate-y-1/4 translate-x-1/4" />
+        <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 md:block hidden">
+          <img src="/icons/gear.png" alt="Decorative sphere" className="w-full h-full object-contain transform scale-150" />
         </div>
-        <div className="absolute top-0 right-0 w-40 h-40 md:block hidden">
+        <div className="absolute top-14 left-10 w-48 h-48 md:block hidden">
           <img src="/icons/robot.png" alt="robot" className="w-full h-full object-contain transform scale-125 translate-x-1/4 -translate-y-1/4" />
         </div>
-        {/* Gear for mobile view */}
-        <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 w-64 h-64 md:hidden block">
-          <img src="/icons/gear.png" alt="Decorative gear" className="w-full h-full object-contain transform scale-150" />
+        <div className="absolute -bottom-16 -right-8 w-48 h-32 md:block hidden">
+           <img src="/icons/tool.png" alt="Decorative tools" className="w-full h-full object-contain transform scale-125 translate-x-1/4 translate-y-1/4" />
         </div>
+        {/* Gear for mobile view */}
+        <div className="absolute -top-40 left-1/2 transform -translate-x-1/2 w-64 h-64 md:hidden block">
+          <img src="/icons/gear.png" alt="Decorative gear" className="w-full h-full object-contain transform scale-100" />
+        </div>
+        
         
         {/* Main content */}
         <div className="relative z-10 text-center mb-12 flex items-center justify-center mt-24">
           <div>
             <h1 className="text-3xl md:text-5xl font-bold mb-6">รายละเอียดการดำเนินงาน</h1>
             <h2 className="text-2xl md:text-4xl font-bold mb-6">Report in progress</h2>
-            <p className="text-base md:text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base md:text-xl text-black max-w-2xl mx-auto">
               รายละเอียดการดำเนินงานการติดตามขั้นตอนการดำเนินต่าง ๆ ที่ได้รับแจ้ง
             </p>
           </div>
@@ -76,9 +80,7 @@ const ProgressReportLayout = () => {
           />
           
           {/* Decorative tools */}
-          <div className="absolute -bottom-16 -right-8 w-48 h-32 md:block hidden">
-            <img src="/icons/tool.png" alt="Decorative tools" className="w-full h-full object-contain transform scale-150 translate-x-1/4 translate-y-1/4" />
-          </div>
+          
         </div>
       </div>
     </div>

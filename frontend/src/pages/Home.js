@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import History from '../components/History';
 import GuidePage from './GuidePage';
 import ProgressReport from '../components/ProgressReport';
+import Reporthome from './Reporthome';
 
 const HomePage = () => {
   return (
@@ -63,6 +64,9 @@ const HomePage = () => {
 
       <div className="w-full">
         <History />
+      </div>
+      <div className="w-full">
+        <Reporthome />
       </div>
       <div className="w-full">
         <ProgressReport />
