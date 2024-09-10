@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import api from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth hook
 
 const buildings = ['UB', 'CE', 'ICT', 'PKY'];
 const categories = [
@@ -15,6 +16,7 @@ const categories = [
 ];
 
 const Reporthome = () => {
+  const { isLoggedIn } = useAuth(); // Use the useAuth hook
   const [formData, setFormData] = useState({
     name: '',
     building: '',
@@ -99,6 +101,10 @@ const Reporthome = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isLoggedIn) {
+      toast.error('กรุณาเข้าสู่ระบบก่อนส่งรายงาน');
+      return;
+    }
     if (!validate()) {
       toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
@@ -119,17 +125,17 @@ const Reporthome = () => {
         }
       });
       toast.success('รายงานถูกส่งเรียบร้อยแล้ว');
-      navigate('/');
+      navigate('/dashboard'); // Navigate to dashboard after successful submission
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการส่งรายงาน');
     }
   };
 
-  const isFormValid = Object.values(formData).every(value => value.trim() !== '');
+  const isFormValid = Object.values(formData).every(value => value.trim() !== '') && isLoggedIn;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl p-8">
+      <div className="bg-white rounded-lg w-full max-w-4xl p-8">
         <div className="flex flex-col items-center mb-8">
           <img src="/citcomslogo.png" alt="CITCOMS Logo" className="scale-[0.4]" />
           <p className="text-center text-gray-600 -mt-24 max-w-2xl">
@@ -272,20 +278,21 @@ const Reporthome = () => {
         </div>
 
         <button 
-          type="submit" 
-          className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white ${
-            isFormValid
-              ? 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700'
-              : 'bg-gray-300 cursor-not-allowed'
-          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500`}
-          disabled={!isFormValid}
-        >
-          บันทึกรายงาน
-        </button>
-      </form>
+            type="submit" 
+            className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white ${
+              isFormValid
+                ? 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700'
+                : 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 cursor-not-allowed'
+            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500`}
+            disabled={!isFormValid}
+          >
+            {isLoggedIn ? 'บันทึกรายงาน' : 'กรุณาเข้าสู่ระบบก่อนส่งรายงาน'}
+          </button>
+        </form>
+      </div>
     </div>
-  </div>
   );
 };
+
 
 export default Reporthome;
