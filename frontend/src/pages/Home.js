@@ -5,6 +5,8 @@ import History from '../components/History';
 import GuidePage from './GuidePage';
 import ProgressReport from '../components/ProgressReport';
 import Reporthome from './Reporthome';
+import Footer from '../components/Footer';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 
 const HomePage = () => {
   return (
@@ -61,7 +63,7 @@ const HomePage = () => {
           </div>
         </main>
       </div>
-
+       
       <div className="w-full">
         <History />
       </div>
@@ -74,7 +76,10 @@ const HomePage = () => {
       <div className="w-full">
         <GuidePage />
       </div>
-      
+      <div className="w-full">
+        <Footer />
+      </div>
+      <ScrollToTopButton />
     </div>
   );
 };

@@ -31,5 +31,8 @@ Compass ด้วยนะครับ
 * npx create-react-app .
 
 
+* npm install react-icons
+
+
 * npm start
 

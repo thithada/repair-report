@@ -7,79 +7,76 @@ const Dashboard = () => {
   const [allReports, setAllReports] = useState([]);
   const [userReports, setUserReports] = useState([]);
   const [otherReports, setOtherReports] = useState([]);
-  const [filteredUserReports, setFilteredUserReports] = useState([]);
-  const [filteredOtherReports, setFilteredOtherReports] = useState([]);
+  const [filteredReports, setFilteredReports] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [currentUserPage, setCurrentUserPage] = useState(1);
-  const [currentOtherPage, setCurrentOtherPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const reportsPerPage = 5;
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/reports');
       setAllReports(response.data);
       setError('');
-      console.log('Fetched reports:', response.data); // Log fetched data
     } catch (error) {
       console.error('Error fetching reports:', error);
       setError('Failed to fetch reports. Please try again later.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const separateReports = useCallback(() => {
-    const userId = user?.id; // Assuming user object has an 'id' field
-    console.log('Current user ID:', userId); // Log current user ID
+    if (!user) return; // Don't separate if user is not authenticated
 
-    const userReports = allReports.filter(report => {
-      console.log('Report:', report); // Log each report
-      return report.userId === userId || report.createdBy === userId;
-    });
-    const otherReports = allReports.filter(report => report.userId !== userId && report.createdBy !== userId);
-
-    console.log('User reports:', userReports); // Log user reports
-    console.log('Other reports:', otherReports); // Log other reports
-
-    setUserReports(userReports);
-    setOtherReports(otherReports);
+    if (user.role === 'admin') {
+      setFilteredReports(allReports);
+      setUserReports([]);
+      setOtherReports(allReports);
+    } else {
+      const userId = user.id;
+      const userReports = allReports.filter(report => report.userId === userId || report.createdBy === userId);
+      const otherReports = allReports.filter(report => report.userId !== userId && report.createdBy !== userId);
+      setUserReports(userReports);
+      setOtherReports(otherReports);
+      setFilteredReports(otherReports);
+    }
   }, [allReports, user]);
 
   const filterReports = useCallback(() => {
-    const filterFunction = (reports) => {
-      let filtered = reports;
-      if (categoryFilter !== 'all') {
-        filtered = filtered.filter(report => report.category === categoryFilter);
-      }
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter(report => report.status === statusFilter);
-      }
-      return filtered;
-    };
+    if (!user) return; // Don't filter if user is not authenticated
 
-    setFilteredUserReports(filterFunction(userReports));
-    setFilteredOtherReports(filterFunction(otherReports));
-    setCurrentUserPage(1);
-    setCurrentOtherPage(1);
-  }, [userReports, otherReports, categoryFilter, statusFilter]);
+    let filtered = user.role === 'admin' ? allReports : otherReports;
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(report => report.category === categoryFilter);
+    }
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(report => report.status === statusFilter);
+    }
+    setFilteredReports(filtered);
+    setCurrentPage(1);
+  }, [allReports, otherReports, categoryFilter, statusFilter, user]);
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [fetchReports]);
 
   useEffect(() => {
-    separateReports();
-  }, [separateReports]);
+    if (!authLoading) {
+      separateReports();
+    }
+  }, [authLoading, separateReports]);
 
   useEffect(() => {
-    filterReports();
-  }, [filterReports]);
+    if (!authLoading) {
+      filterReports();
+    }
+  }, [authLoading, filterReports]);
 
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -90,22 +87,18 @@ const Dashboard = () => {
     return email.split('@')[0];
   };
 
-  const paginateReports = (reports, currentPage) => {
+  const paginateReports = (reports) => {
     const indexOfLastReport = currentPage * reportsPerPage;
     const indexOfFirstReport = indexOfLastReport - reportsPerPage;
     return reports.slice(indexOfFirstReport, indexOfLastReport);
   };
 
-  const paginate = (pageNumber, setPageFunction) => setPageFunction(pageNumber);
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const uniqueCategories = ['all', ...new Set(allReports.map(report => report.category))];
   const statusOptions = ['all', 'รอดำเนินการ', 'กำลังดำเนินการ', 'เสร็จสิ้น'];
 
-  if (loading) {
-    return <div className="text-center mt-8">กำลังโหลด...</div>;
-  }
-
-  const renderReportList = (reports, currentPage, setPageFunction, title) => (
+  const renderReportList = (reports, title) => (
     <div className="mb-8">
       <h3 className="text-xl font-semibold mb-2">{title}</h3>
       {reports.length === 0 ? (
@@ -113,7 +106,7 @@ const Dashboard = () => {
       ) : (
         <>
           <ul className="space-y-4">
-            {paginateReports(reports, currentPage).map((report) => (
+            {paginateReports(reports).map((report) => (
               <li key={report._id} className="border p-4 rounded shadow bg-white">
                 <h4 className="font-bold text-lg">{report.title}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -150,7 +143,7 @@ const Dashboard = () => {
             {Array.from({ length: Math.ceil(reports.length / reportsPerPage) }, (_, i) => (
               <button
                 key={i}
-                onClick={() => paginate(i + 1, setPageFunction)}
+                onClick={() => paginate(i + 1)}
                 className={`mx-1 px-3 py-1 rounded ${
                   currentPage === i + 1 ? 'bg-purple-500 text-white' : 'bg-gray-200'
                 }`}
@@ -164,6 +157,14 @@ const Dashboard = () => {
     </div>
   );
 
+  if (loading || authLoading) {
+    return <div className="text-center mt-8">กำลังโหลด...</div>;
+  }
+
+  if (!user) {
+    return <div className="text-center mt-8">กรุณาเข้าสู่ระบบเพื่อดูรายงาน</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-400 to-white relative overflow-hidden">
       <Navbar />
@@ -171,11 +172,9 @@ const Dashboard = () => {
         <div className="bg-white bg-opacity-90 rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-bold mb-4">แดชบอร์ด</h2>
           {error && <p className="text-red-500 mb-4">{error}</p>}
-          {user && user.email && (
-            <p className="mb-4">
-              รหัสนักศึกษาของคุณคือ {getUsernameFromEmail(user.email)}!
-            </p>
-          )}
+          <p className="mb-4">
+            {user.role === 'admin' ? 'คุณกำลังเข้าสู่ระบบในฐานะแอดมิน' : `รหัสนักศึกษาของคุณคือ ${user.id || getUsernameFromEmail(user.email)}!`}
+          </p>
           <div className="mb-4">
             <p className="font-semibold">จำนวนรายงานทั้งหมด: {allReports.length}</p>
           </div>
@@ -186,7 +185,7 @@ const Dashboard = () => {
                 id="category"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="border rounded p-1"
+                className="border rounded-full p-2"
               >
                 {uniqueCategories.map((category) => (
                   <option key={category} value={category}>
@@ -201,7 +200,7 @@ const Dashboard = () => {
                 id="status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border rounded p-1"
+                className="border rounded-full p-2"
               >
                 {statusOptions.map((status) => (
                   <option key={status} value={status}>
@@ -211,8 +210,8 @@ const Dashboard = () => {
               </select>
             </div>
           </div>
-          {renderReportList(filteredUserReports, currentUserPage, setCurrentUserPage, "รายการแจ้งซ่อมของคุณ")}
-          {renderReportList(filteredOtherReports, currentOtherPage, setCurrentOtherPage, "รายการแจ้งซ่อมของผู้อื่น")}
+          {user.role !== 'admin' && userReports.length > 0 && renderReportList(userReports, "รายการแจ้งซ่อมของคุณ")}
+          {renderReportList(filteredReports, user.role === 'admin' ? "รายการแจ้งซ่อมทั้งหมด" : "รายการแจ้งซ่อมของผู้อื่น")}
         </div>
       </div>
     </div>
