@@ -5,13 +5,23 @@ import Navbar from '../components/Navbar';
 
 const Dashboard = () => {
   const [reports, setReports] = useState([]);
+  const [filteredReports, setFilteredReports] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const { user } = useAuth();
+
+  const reportsPerPage = 5;
 
   useEffect(() => {
     fetchReports();
   }, []);
+
+  useEffect(() => {
+    filterReports();
+  }, [reports, categoryFilter, statusFilter]);
 
   const fetchReports = async () => {
     try {
@@ -27,6 +37,18 @@ const Dashboard = () => {
     }
   };
 
+  const filterReports = () => {
+    let filtered = reports;
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(report => report.category === categoryFilter);
+    }
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(report => report.status === statusFilter);
+    }
+    setFilteredReports(filtered);
+    setCurrentPage(1);
+  };
+
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('th-TH', options);
@@ -36,13 +58,21 @@ const Dashboard = () => {
     return email.split('@')[0];
   };
 
+  const indexOfLastReport = currentPage * reportsPerPage;
+  const indexOfFirstReport = indexOfLastReport - reportsPerPage;
+  const currentReports = filteredReports.slice(indexOfFirstReport, indexOfLastReport);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const uniqueCategories = ['all', ...new Set(reports.map(report => report.category))];
+  const statusOptions = ['all', 'รอดำเนินการ', 'กำลังดำเนินการ', 'เสร็จสิ้น'];
+
   if (loading) {
     return <div className="text-center mt-8">กำลังโหลด...</div>;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-400 to-white relative overflow-hidden">
-      {/* Navbar is fixed and above everything else */}
       <Navbar />
       <div className="absolute inset-0 z-0 pointer-events-none">
         <svg
@@ -76,12 +106,47 @@ const Dashboard = () => {
               รหัสนักศึกษาของคุณคือ {getUsernameFromEmail(user.email)}!
             </p>
           )}
+          <div className="mb-4">
+            <p className="font-semibold">จำนวนรายงานทั้งหมด: {reports.length}</p>
+          </div>
+          <div className="flex mb-4 space-x-4">
+            <div>
+              <label htmlFor="category" className="mr-2">หมวดหมู่:</label>
+              <select
+                id="category"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="border rounded p-1"
+              >
+                {uniqueCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category === 'all' ? 'ทั้งหมด' : category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="status" className="mr-2">สถานะ:</label>
+              <select
+                id="status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border rounded p-1"
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status === 'all' ? 'ทั้งหมด' : status}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <h3 className="text-xl font-semibold mb-2">รายการแจ้งซ่อมล่าสุด</h3>
-          {reports.length === 0 ? (
-            <p>ไม่มีรายการแจ้งซ่อมในขณะนี้</p>
+          {currentReports.length === 0 ? (
+            <p>ไม่มีรายการแจ้งซ่อมที่ตรงกับเงื่อนไขในขณะนี้</p>
           ) : (
             <ul className="space-y-4">
-              {reports.map((report) => (
+              {currentReports.map((report) => (
                 <li key={report._id} className="border p-4 rounded shadow bg-white">
                   <h4 className="font-bold text-lg">{report.title}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -131,6 +196,19 @@ const Dashboard = () => {
               ))}
             </ul>
           )}
+          <div className="mt-4 flex justify-center">
+            {Array.from({ length: Math.ceil(filteredReports.length / reportsPerPage) }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => paginate(i + 1)}
+                className={`mx-1 px-3 py-1 rounded ${
+                  currentPage === i + 1 ? 'bg-purple-500 text-white' : 'bg-gray-200'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
