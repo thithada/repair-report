@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const History = () => {
   const [showAll, setShowAll] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const allCategoriesRef = useRef(null); // ใช้ ref เพื่ออ้างอิงตำแหน่งของรายการทั้งหมด
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -81,6 +82,13 @@ const History = () => {
 
   const visibleCategories = isMobile && !showAll ? categories.slice(0, 3) : categories;
 
+  const handleShowAll = () => {
+    setShowAll(true);
+    if (allCategoriesRef.current) {
+      allCategoriesRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 relative overflow-hidden">
       {/* Cloud images */}
@@ -147,11 +155,14 @@ const History = () => {
             </div>
           ))}
         </div>
-        
+
+        {/* Reference for scrolling */}
+        <div ref={allCategoriesRef} className="mt-8"></div>
+
         {isMobile && !showAll && categories.length > 3 && (
           <div className="flex justify-center mt-8">
             <button
-              onClick={() => setShowAll(true)}
+              onClick={handleShowAll}
               className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             >
               ดูเพิ่มเติม
