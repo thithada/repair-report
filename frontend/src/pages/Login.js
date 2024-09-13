@@ -14,12 +14,25 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isFormValid, setIsFormValid] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
+  const [cooldownTime, setCooldownTime] = useState(0);
   const navigate = useNavigate();
   const { login } = useAuth();
 
   useEffect(() => {
     setIsFormValid(isValidEmail(email) && password.trim() !== '' && isPasswordValid);
   }, [email, password, isPasswordValid]);
+
+  useEffect(() => {
+    let timer;
+    if (cooldownTime > 0) {
+      timer = setTimeout(() => {
+        setCooldownTime(cooldownTime - 1);
+      }, 1000);
+    } else {
+      setIsPasswordValid(true);
+    }
+    return () => clearTimeout(timer);
+  }, [cooldownTime]);
 
   const isValidEmail = (email) => {
     const emailRegex = /^[a-zA-Z0-9._-]+@up\.ac\.th$/;
@@ -28,7 +41,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || cooldownTime > 0) return;
     
     setIsLoading(true);
     setError('');
@@ -43,6 +56,7 @@ const Login = () => {
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       toast.error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       setIsPasswordValid(false);
+      setCooldownTime(3);
     } finally {
       setIsLoading(false);
     }
@@ -123,20 +137,20 @@ const Login = () => {
             </div>
             <button 
               type="submit" 
-              className={`w-full bg-gradient-to-r from-pink-400 to-purple-500 text-white font-bold py-2 px-4 rounded-md hover:from-pink-500 hover:to-purple-600 transition duration-300 ${(!isFormValid || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={!isFormValid || isLoading}
+              className={`w-full bg-gradient-to-r from-pink-400 to-purple-500 text-white font-bold py-2 px-4 rounded-md hover:from-pink-500 hover:to-purple-600 transition duration-300 ${(!isFormValid || isLoading || cooldownTime > 0) ? 'opacity-50' : ''}`}
+              disabled={!isFormValid || isLoading || cooldownTime > 0}
             >
-              {isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+              {isLoading ? 'กำลังเข้าสู่ระบบ...' : 
+               cooldownTime > 0 ? `รอ ${cooldownTime} วินาที` : 'เข้าสู่ระบบ'}
             </button>
           </form>
           <p className="mt-4 text-center text-sm text-black">
             ยังไม่มีบัญชี? <a href="/register" className="font-medium text-purple-700 hover:text-purple-400">สมัครสมาชิก</a>
           </p>
         </div>
-        {/* Right side - Illustration */}
         <div className="w-full md:w-1/2 p-8 flex items-center justify-center" style={{ transform: 'scale(0.9)' }}>
-    <img src="/login.png" alt="Register illustration" className="max-w-full h-auto" style={{ width: '90%', height: 'auto' }} />
-</div>
+          <img src="/login.png" alt="Login illustration" className="max-w-full h-auto" style={{ width: '90%', height: 'auto' }} />
+        </div>
       </div>
     </div>
   );
