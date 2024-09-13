@@ -8,7 +8,7 @@ const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-start mb-8">
           <div className="mb-8 md:mb-0 md:w-1/2">
-            <img src="/icons/citcomsfooter.png" alt="CITCOMS Logo" className="h-12 mb-4" />
+            <img src="/icons/citcomsfooter.png" alt="CITCOMS Logo" className="h-16 mb-4" />
             <p className="text-sm mb-4">
               ศูนย์บริการเทคโนโลยีสารสนเทศและการสื่อสารได้เปิดให้บริการ
               Self Training Room เพื่อใช้เป็นห้องฝึกการใช้งานบริการ

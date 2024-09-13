@@ -1,3 +1,4 @@
+// backend\routes\reports.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -83,12 +84,19 @@ router.patch('/:id', auth, adminAuth, async (req, res) => {
 });
 
 // Delete report
-router.delete('/:id', auth, adminAuth, async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const report = await Report.findByIdAndDelete(req.params.id);
+    const report = await Report.findById(req.params.id);
     if (!report) {
       return res.status(404).json({ message: 'Report not found' });
     }
+    
+    // Check if the user is the owner of the report or an admin
+    if (report.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'You do not have permission to delete this report' });
+    }
+
+    await Report.findByIdAndDelete(req.params.id);
     req.io.emit('deleteReport', req.params.id);
     res.json({ message: 'Report deleted successfully' });
   } catch (error) {

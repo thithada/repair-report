@@ -2,26 +2,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
+import io from 'socket.io-client';
 
 const Dashboard = () => {
   const [allReports, setAllReports] = useState([]);
   const [userReports, setUserReports] = useState([]);
-  const [otherReports, setOtherReports] = useState([]);
-  const [filteredReports, setFilteredReports] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const { user, loading: authLoading } = useAuth();
-
-  const reportsPerPage = 5;
+  const { user, token } = useAuth();
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [showMenu, setShowMenu] = useState(null);
 
   const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/reports');
-      setAllReports(response.data);
+      const response = await api.get('/reports', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const allReportsData = response.data;
+      setAllReports(allReportsData.filter(report => report.createdBy !== user._id));
+      setUserReports(allReportsData.filter(report => report.createdBy === user._id));
       setError('');
     } catch (error) {
       console.error('Error fetching reports:', error);
@@ -29,54 +30,46 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const separateReports = useCallback(() => {
-    if (!user) return; // Don't separate if user is not authenticated
-
-    if (user.role === 'admin') {
-      setFilteredReports(allReports);
-      setUserReports([]);
-      setOtherReports(allReports);
-    } else {
-      const userId = user.id;
-      const userReports = allReports.filter(report => report.userId === userId || report.createdBy === userId);
-      const otherReports = allReports.filter(report => report.userId !== userId && report.createdBy !== userId);
-      setUserReports(userReports);
-      setOtherReports(otherReports);
-      setFilteredReports(otherReports);
-    }
-  }, [allReports, user]);
-
-  const filterReports = useCallback(() => {
-    if (!user) return; // Don't filter if user is not authenticated
-
-    let filtered = user.role === 'admin' ? allReports : otherReports;
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(report => report.category === categoryFilter);
-    }
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(report => report.status === statusFilter);
-    }
-    setFilteredReports(filtered);
-    setCurrentPage(1);
-  }, [allReports, otherReports, categoryFilter, statusFilter, user]);
+  }, [user._id, token]);
 
   useEffect(() => {
+    const socket = io('http://localhost:5000');
     fetchReports();
+
+    socket.on('newReport', fetchReports);
+    socket.on('updateReport', fetchReports);
+    socket.on('deleteReport', fetchReports);
+
+    return () => socket.disconnect();
   }, [fetchReports]);
 
-  useEffect(() => {
-    if (!authLoading) {
-      separateReports();
+  const deleteReport = async (id) => {
+    if (window.confirm('คุณแน่ใจหรือไม่ที่จะลบรายงานนี้?')) {
+      try {
+        await api.delete(`/reports/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        await fetchReports();
+        setShowMenu(null);
+        setError('');
+      } catch (error) {
+        console.error('Error deleting report:', error);
+        if (error.response && error.response.status === 403) {
+          setError('คุณไม่มีสิทธิ์ลบรายงานนี้');
+        } else if (error.response && error.response.status === 404) {
+          setError('ไม่พบรายงานที่ต้องการลบ');
+        } else {
+          setError('เกิดข้อผิดพลาดในการลบรายงาน โปรดลองอีกครั้งในภายหลัง');
+        }
+      }
     }
-  }, [authLoading, separateReports]);
+  };
 
-  useEffect(() => {
-    if (!authLoading) {
-      filterReports();
-    }
-  }, [authLoading, filterReports]);
+  const editReport = (id) => {
+    // TODO: Implement edit functionality
+    console.log('Edit report', id);
+    setShowMenu(null);
+  };
 
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -87,131 +80,136 @@ const Dashboard = () => {
     return email.split('@')[0];
   };
 
-  const paginateReports = (reports) => {
-    const indexOfLastReport = currentPage * reportsPerPage;
-    const indexOfFirstReport = indexOfLastReport - reportsPerPage;
-    return reports.slice(indexOfFirstReport, indexOfLastReport);
+  const filterReports = (reports) => {
+    return reports.filter(report => 
+      (!categoryFilter || report.category === categoryFilter) &&
+      (!statusFilter || report.status === statusFilter)
+    );
   };
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  const uniqueCategories = ['all', ...new Set(allReports.map(report => report.category))];
-  const statusOptions = ['all', 'รอดำเนินการ', 'กำลังดำเนินการ', 'เสร็จสิ้น'];
 
   const renderReportList = (reports, title) => (
     <div className="mb-8">
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      {reports.length > 0 && <h3 className="text-xl font-semibold mb-2">{title}</h3>}
       {reports.length === 0 ? (
-        <p>ไม่มีรายการแจ้งซ่อมที่ตรงกับเงื่อนไขในขณะนี้</p>
+        <p>ไม่มีรายการแจ้งซ่อมในขณะนี้</p>
       ) : (
-        <>
-          <ul className="space-y-4">
-            {paginateReports(reports).map((report) => (
-              <li key={report._id} className="border p-4 rounded shadow bg-white">
-                <h4 className="font-bold text-lg">{report.title}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <p><strong>อาคาร:</strong> {report.building}</p>
-                    <p><strong>เลขห้อง:</strong> {report.roomNumber}</p>
-                    <p><strong>หมวดหมู่:</strong> {report.category}</p>
-                    <p><strong>วันที่รายงาน:</strong> {formatDate(report.reportDate)}</p>
-                    <p>
-                      <strong>สถานะ:</strong>{' '}
-                      <span className={`font-semibold ${
-                        report.status === 'รอดำเนินการ' ? 'text-yellow-600' :
-                        report.status === 'กำลังดำเนินการ' ? 'text-blue-600' :
-                        'text-green-600'
-                      }`}>
-                        {report.status}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <p><strong>รายละเอียด:</strong></p>
-                    <p className="mt-1">{report.details}</p>
-                    {report.note && (
-                      <div className="mt-2 bg-yellow-50 p-2 rounded">
-                        <p><strong>หมายเหตุ:</strong> {report.note}</p>
-                      </div>
-                    )}
-                  </div>
+        <ul className="space-y-4">
+          {filterReports(reports).map((report) => (
+            <li key={report._id} className="border p-4 rounded shadow bg-white relative">
+              {report.createdBy === user._id && (
+                <div className="absolute top-2 right-2">
+                  <button
+                    onClick={() => setShowMenu(showMenu === report._id ? null : report._id)}
+                    className="text-gray-500 hover:text-gray-700 w-8 h-8 flex items-center justify-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    </svg>
+                  </button>
+                  {showMenu === report._id && (
+                    <div className="absolute top-10 right-0 bg-white p-2 shadow rounded z-10">
+                      <button
+                        onClick={() => editReport(report._id)}
+                        className="block w-full text-left px-2 py-1 hover:bg-gray-100"
+                      >
+                        แก้ไขรายงาน
+                      </button>
+                      <button
+                        onClick={() => deleteReport(report._id)}
+                        className="block w-full text-left px-2 py-1 hover:bg-gray-100 text-red-500"
+                      >
+                        ลบรายงาน
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 flex justify-center">
-            {Array.from({ length: Math.ceil(reports.length / reportsPerPage) }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => paginate(i + 1)}
-                className={`mx-1 px-3 py-1 rounded ${
-                  currentPage === i + 1 ? 'bg-purple-500 text-white' : 'bg-gray-200'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </>
+              )}
+              <h4 className="font-bold text-lg">{report.name}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <div>
+                  <p><strong>อาคาร:</strong> {report.building}</p>
+                  <p><strong>เลขห้อง:</strong> {report.roomNumber}</p>
+                  <p><strong>หมวดหมู่:</strong> {report.category}</p>
+                  <p><strong>วันที่รายงาน:</strong> {formatDate(report.reportDate)}</p>
+                  <p>
+                    <strong>สถานะ:</strong>{' '}
+                    <span className={`font-semibold ${
+                      report.status === 'รอดำเนินการ' ? 'text-yellow-600' :
+                      report.status === 'กำลังดำเนินการ' ? 'text-blue-600' :
+                      'text-green-600'
+                    }`}>
+                      {report.status}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <p><strong>รายละเอียด:</strong></p>
+                  <p className="mt-1">{report.details}</p>
+                  {report.note && (
+                    <div className="mt-2 bg-yellow-50 p-2 rounded">
+                      <p><strong>หมายเหตุ:</strong> {report.note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
 
-  if (loading || authLoading) {
+  if (loading) {
     return <div className="text-center mt-8">กำลังโหลด...</div>;
-  }
-
-  if (!user) {
-    return <div className="text-center mt-8">กรุณาเข้าสู่ระบบเพื่อดูรายงาน</div>;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-400 to-white relative overflow-hidden">
       <Navbar />
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {/* SVG background elements */}
+      </div>
       <div className="relative z-10 container mx-auto mt-10 p-4">
         <div className="bg-white bg-opacity-90 rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold mb-4">แดชบอร์ด</h2>
-          {error && <p className="text-red-500 mb-4">{error}</p>}
-          <p className="mb-4">
-            {user.role === 'admin' ? 'คุณกำลังเข้าสู่ระบบในฐานะแอดมิน' : `รหัสนักศึกษาของคุณคือ ${user.id || getUsernameFromEmail(user.email)}!`}
-          </p>
-          <div className="mb-4">
-            <p className="font-semibold">จำนวนรายงานทั้งหมด: {allReports.length}</p>
-          </div>
-          <div className="flex mb-4 space-x-4">
-            <div>
-              <label htmlFor="category" className="mr-2">หมวดหมู่:</label>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">แดชบอร์ด</h2>
+            <div className="flex gap-2">
               <select
-                id="category"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="border rounded-full p-2"
+                className="p-2 border rounded"
               >
-                {uniqueCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category === 'all' ? 'ทั้งหมด' : category}
-                  </option>
-                ))}
+                <option value="">ทุกหมวดหมู่</option>
+                <option value="ไมค์โครโฟน">ไมค์โครโฟน</option>
+                <option value="อินเตอร์เน็ต">อินเตอร์เน็ต</option>
+                <option value="โปรเจคเตอร์">โปรเจคเตอร์</option>
+                <option value="จอแสดงภาพ">จอแสดงภาพ</option>
+                <option value="ลำโพง">ลำโพง</option>
+                <option value="เครื่องปรับอากาศ">เครื่องปรับอากาศ</option>
+                <option value="อื่นๆ">อื่นๆ</option>
               </select>
-            </div>
-            <div>
-              <label htmlFor="status" className="mr-2">สถานะ:</label>
               <select
-                id="status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border rounded-full p-2"
+                className="p-2 border rounded"
               >
-                {statusOptions.map((status) => (
-                  <option key={status} value={status}>
-                    {status === 'all' ? 'ทั้งหมด' : status}
-                  </option>
-                ))}
+                <option value="">ทุกสถานะ</option>
+                <option value="รอดำเนินการ">รอดำเนินการ</option>
+                <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+                <option value="เสร็จสิ้น">เสร็จสิ้น</option>
               </select>
             </div>
           </div>
-          {user.role !== 'admin' && userReports.length > 0 && renderReportList(userReports, "รายการแจ้งซ่อมของคุณ")}
-          {renderReportList(filteredReports, user.role === 'admin' ? "รายการแจ้งซ่อมทั้งหมด" : "รายการแจ้งซ่อมของผู้อื่น")}
+          
+          {error && <p className="text-red-500 mb-4">{error}</p>}
+          {user && user.email && (
+            <p className="mb-4">
+              รหัสนักศึกษาของคุณคือ {getUsernameFromEmail(user.email)}!
+            </p>
+          )}
+
+          {renderReportList(userReports, "รายการแจ้งซ่อมของคุณ")}
+          {renderReportList(allReports, "รายการแจ้งซ่อมทั้งหมด")}
         </div>
       </div>
     </div>
