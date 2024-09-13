@@ -17,6 +17,58 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// Get a specific report
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching report', error: error.message });
+  }
+});
+
+// Update report (for EditReportForm)
+router.patch('/:id', auth, upload.single('image'), async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    // Check if the user is the owner of the report or an admin
+    if (report.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'You do not have permission to edit this report' });
+    }
+
+    const updateData = { ...req.body };
+
+    // Handle image update
+    if (req.file) {
+      // Delete old image if it exists
+      if (report.imagePath) {
+        fs.unlink(report.imagePath, (err) => {
+          if (err) console.error('Error deleting old image:', err);
+        });
+      }
+      updateData.imagePath = req.file.path;
+    }
+
+    const updatedReport = await Report.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    );
+
+    req.io.emit('updateReport', updatedReport);
+    res.json(updatedReport);
+  } catch (error) {
+    res.status(400).json({ message: 'Error updating report', error: error.message });
+  }
+});
+
 // Create a new report with image upload
 router.post('/', auth, upload.single('image'), async (req, res) => {
   try {

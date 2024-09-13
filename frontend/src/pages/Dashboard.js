@@ -3,6 +3,7 @@ import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import io from 'socket.io-client';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [allReports, setAllReports] = useState([]);
@@ -13,6 +14,7 @@ const Dashboard = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showMenu, setShowMenu] = useState(null);
+  const navigate = useNavigate();
 
   const fetchReports = useCallback(async () => {
     try {
@@ -66,9 +68,7 @@ const Dashboard = () => {
   };
 
   const editReport = (id) => {
-    // TODO: Implement edit functionality
-    console.log('Edit report', id);
-    setShowMenu(null);
+    navigate(`/edit-report/${id}`);
   };
 
   const formatDate = (dateString) => {

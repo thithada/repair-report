@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ReportForm from './pages/ReportForm';
+import EditReportForm from './pages/EditReportForm'; // เพิ่มการ import EditReportForm
 import Admin from './pages/Admin';
 import ProtectedRoute from './components/ProtectedRoute';
 import ToastNotification from './components/ToastNotification';
@@ -28,6 +29,11 @@ const AnimatedRoutes = () => {
         <Route path="/report" element={
           <ProtectedRoute>
             <PageTransition><ReportForm /></PageTransition>
+          </ProtectedRoute>
+        } />
+        <Route path="/edit-report/:id" element={ // เพิ่ม route สำหรับ EditReportForm
+          <ProtectedRoute>
+            <PageTransition><EditReportForm /></PageTransition>
           </ProtectedRoute>
         } />
         <Route path="/admin" element={
